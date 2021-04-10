@@ -2,40 +2,85 @@
 
 #### FILES
 
-[network1.pcapng](./src/network1.pcapng)
+[chall.png](./src/chall.png)
 
 ---
 
-#### Follow Up (Solution) 
+#### Delete (Solution) 
 
-The challenge provides a PCAP Next Generation (.pcapng) dump file. So let's use Wireshark to analyze.
+When we try to open the file it seems like it is corrupted.
 
-![wireshark](./img/wireshark.PNG)
+Let's do some basic recon to check.
 
-The .pcapng file consists of captured data packets over some network. In the screenshot above we can see several DNS packets, even one with a query to shakticon.com.
+```
+$ file chall.png
+chall.png: PNG image data, 264 x 191, 8-bit colormap, non-interlaced
+```
 
-When given a pcap/pcapng file, typically we would be more interested in the TCP or FTP protocol. So let's filter by protocol instead and take a look at the TCP packets.
+```
+$ ls -la chall.png
+-rwxrwxrwx 1 tracesofnuts tracesofnuts 46335 Apr 10 10:31 chall.png
+```
 
-![tcp](./img/tcp.PNG)
+So far nothing out of the ordinary. Since it is an image file, we can use exiftool to reveal the metadata.
 
-Indeed, there are several TCP packets with 3 of the packets being of particular interest because each one of contains a pastebin link.
+```
+$ exiftool chall.png
+ExifTool Version Number         : 12.16
+File Name                       : chall.png
+Directory                       : .
+File Size                       : 45 KiB
+File Modification Date/Time     : 2021:04:10 10:31:05+08:00
+File Access Date/Time           : 2021:04:10 10:34:42+08:00
+File Inode Change Date/Time     : 2021:04:10 10:32:43+08:00
+File Permissions                : rwxrwxrwx
+File Type                       : PNG
+File Type Extension             : png
+MIME Type                       : image/png
+Image Width                     : 264
+Image Height                    : 191
+Bit Depth                       : 8
+Color Type                      : Palette
+Compression                     : Deflate/Inflate
+Filter                          : Adaptive
+Interlace                       : Noninterlaced
+Palette                         : (Binary data 537 bytes, use -b option to extract)
+Warning                         : Corrupted PNG image
+Image Size                      : 264x191
+Megapixels                      : 0.050
+```
 
-The packets and the pastebin links are listed below.
+Indeed, the PNG image is corrupted.
 
-- 282 - https://pastebin.com/MDGsGJvL
-- 297 - https://pastebin.com/CYyWFGVL
-- 745 - https://pastebin.com/4NXGaVbA
 
-The first 2 are fake flags. The real flag is in packet number 745.
+
+Let's use `xxd` to create a hexdump of the file.
+
+```
+$ xxd chall.png > hexdump.txt
+```
+
+Let's check the headers and footers of the file.
+
+A PNG file should have the following:
+
+- header signature: `89 50 4e 47 0d 0a 1a 0a ` 
+- footer signature: `49 45 4e 44 ae 42 60 82`
+- an IHDR chunk
+- one or more IDAT chunks
+
+However, the file seem to contain 2 headers.
+
+I am guessing that there may be deleted binary values based on the title of the challenge.
 
 Flag:
 
 ```
-shaktictf{Th15_w4s_eA5Y!!}
+
 ```
 
 ---
 
 #### References
 
-- https://www.varonis.com/blog/how-to-use-wireshark/
+- http://www.libpng.org/pub/png/spec/1.2/PNG-Chunks.html
